@@ -5,7 +5,7 @@ const Product = require('../models/products');
 const getAllProducts = async (req, res) => {
 
 
-	const { name, featured, company, sort, fields } = req.query;
+	const { name, featured, company, sort, fields, numericFilters } = req.query;
 
 	const queryObj = {};
 	let sortList = 'createdAt';
@@ -27,12 +27,35 @@ const getAllProducts = async (req, res) => {
 		sortList = sort.split(','). join(' ');
 	}
 
+	if (numericFilters) {
+    const operatorMap = {
+      '>': '$gt',
+      '>=': '$gte',
+      '=': '$eq',
+      '<': '$lt',
+      '<=': '$lte',
+    };
+    const regEx = /\b(<|>|>=|=|<|<=)\b/g;
+    let filters = numericFilters.replace(
+      regEx,
+      (match) => `-${operatorMap[match]}-`
+    );
+    const options = ['price', 'rating'];
+    filters = filters.split(',').forEach((item) => {
+      const [field, operator, value] = item.split('-');
+      if (options.includes(field)) {
+        queryObj[field] = { [operator]: Number(value) };
+      }
+    });
+  }
+
 	let result = Product.find(queryObj).sort(sortList);
 
 	if (fields) {
 		const fieldsList = fields.split(','). join(' ');
 		result = Product.find(queryObj).sort(sortList).select(fieldsList);
 	}
+
 
 	const page = parseInt(req.query.page) || 1;
 	const limit = parseInt(req.query.limit) || 10;
